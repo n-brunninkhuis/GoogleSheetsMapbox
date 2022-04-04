@@ -59,9 +59,18 @@
           lonfield: 'Lon',
           delimiter: ','
         }, function (err, data) {
-          map.on('load', function () {
 
-            // console.log(data);
+   console.log(data);
+          var values = data.features.map(f => f.properties.Votes);
+          var min = Math.min(...values);
+          var max = Math.max(...values);
+          var max_radius = 25;
+          var max_orig_radius = Math.sqrt(max/Math.PI)*2;
+          var radius_correction = max_orig_radius / max_radius;
+          console.log(radius_correction);
+          var range = max-min;
+
+          map.on('load', function () {
 
             map.addLayer({
               'id': 'csvData',
@@ -71,17 +80,27 @@
                 'data': data
               },
               'paint': {
-                'circle-radius': ["to-number", ["get", "Grootte"]],
+                'circle-radius':
+                  ["/",
+                    ["*",
+                      ["sqrt", [
+                        "/",
+                        ["to-number", ["get", "Votes"]],
+                        ["pi"]]
+                      ],
+                      2
+                    ],
+                    radius_correction
+                  ],
                 'circle-opacity': 0.6,
-                'circle-color': 'green'
-                // [
-                //   'interpolate',
-                //   ['linear'],
-                //   ["to-number", ["get", "Value"]],
-                //   4, 'red',
-                //   158, 'yellow',
-                //   311, 'green'
-                // ]
+                'circle-color': [
+                  'interpolate',
+                  ['linear'],
+                  ["to-number", ["get", "Votes"]],
+                  min, 'red',
+                  min + range / 2, 'yellow',
+                  max, 'green'
+                ]
 
               }
             });
@@ -89,13 +108,13 @@
            map.addLayer({
               'id': 'count',
               'type': 'symbol',
-              'filter': ['!=', ["to-number", ["get", "Value"]], 0], 
+              'filter': ['!=', ["to-number", ["get", "Votes"]], 0], 
               'source': {
                 'type': 'geojson',
                 'data': data
               },
               'layout': {
-                'text-field': ['get', 'Value'],
+                'text-field': ['get', 'Votes'],
                 'text-font': [
                 'Arial Unicode MS Bold'
                 ],
@@ -106,7 +125,14 @@
               },
               'paint': {
                 "text-color": "white",
-                "text-halo-color": "green",
+                "text-halo-color": [
+                  'interpolate',
+                  ['linear'],
+                  ["to-number", ["get", "Votes"]],
+                  min, 'red',
+                  min + range / 2, 'yellow',
+                  max, 'green'
+                ],
                 "text-halo-width": 1,
                 "text-halo-blur": 0
               }
@@ -115,7 +141,7 @@
 
             map.on('click', 'csvData', function (e) {
               var coordinates = e.features[0].geometry.coordinates.slice();
-              var description = `<h3>` + e.features[0].properties.Naam + `</h3>` + `<h4>` + `<b>` + `Aantal: ` + `</b>` + e.features[0].properties.Value + `</h4>`;
+              var description = `<h3>` + e.features[0].properties.Name + `</h3>` + `<h4>` + `<b>` + `Votes: ` + `</b>` + e.features[0].properties.Votes + `</h4>`;
               while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
                 coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
               }
@@ -135,7 +161,7 @@
             });
 
             var bbox = turf.bbox(data);
-            // map.fitBounds(bbox, { padding: 50 });
+            map.fitBounds(bbox, { padding: 50 });
 
           });
 
