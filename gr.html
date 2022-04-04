@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset='utf-8' />
+  <title>Map</title>
+  
+  <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.0/jquery.min.js"></script>
+  <script src='https://api.mapbox.com/mapbox-gl-js/v2.0.1/mapbox-gl.js'></script>
+  <script src='https://npmcdn.com/csv2geojson@latest/csv2geojson.js'></script>
+  <script src='https://npmcdn.com/@turf/turf/turf.min.js'></script>
+  
+  <link href='https://api.mapbox.com/mapbox-gl-js/v2.0.1/mapbox-gl.css' rel='stylesheet' />
+  <link href='style.css' rel='stylesheet' />
+  
+</head>
+
+<body>
+
+  <div id='map'></div>
+
+  <script src='conf.js'></script>
+  <script>
+
+
+
+    var transformRequest = (url, resourceType) => {
+      var isMapboxRequest =
+        url.slice(8, 22) === "api.mapbox.com" ||
+        url.slice(10, 26) === "tiles.mapbox.com";
+      return {
+        url: isMapboxRequest
+          ? url.replace("?", "?pluginName=sheetMapper&")
+          : url
+      };
+    };
+    
+    var map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/light-v10',
+      center: [5.06880510940988, 51.57880769727035],
+      zoom: 11.9,
+      transformRequest: transformRequest
+    });
+
+    $(document).ready(function () {
+      $.ajax({
+        type: "GET",
+        url: sheets_url+'/gviz/tq?tqx=out:csv&sheet='+sheets_sheet,
+        dataType: "text",
+        success: function (csvData) { makeGeoJSON(csvData); }
+      });
+
+      function makeGeoJSON(csvData) {
+        csv2geojson.csv2geojson(csvData, {
+          latfield: 'Lat',
+          lonfield: 'Lon',
+          delimiter: ','
+        }, function (err, data) {
+          map.on('load', function () {
+
+            // console.log(data);
+
+            map.addLayer({
+              'id': 'csvData',
+              'type': 'circle',
+              'source': {
+                'type': 'geojson',
+                'data': data
+              },
+              'paint': {
+                'circle-radius': ["to-number", ["get", "Grootte"]],
+                'circle-opacity': 0.6,
+                'circle-color': 'green'
+                // [
+                //   'interpolate',
+                //   ['linear'],
+                //   ["to-number", ["get", "Value"]],
+                //   4, 'red',
+                //   158, 'yellow',
+                //   311, 'green'
+                // ]
+
+              }
+            });
+
+           map.addLayer({
+              'id': 'count',
+              'type': 'symbol',
+              'filter': ['!=', ["to-number", ["get", "Value"]], 0], 
+              'source': {
+                'type': 'geojson',
+                'data': data
+              },
+              'layout': {
+                'text-field': ['get', 'Value'],
+                'text-font': [
+                'Arial Unicode MS Bold'
+                ],
+                'text-offset': [0, -0.6],
+                'text-anchor': 'top',
+                'text-allow-overlap': true,
+                'text-size': 10
+              },
+              'paint': {
+                "text-color": "white",
+                "text-halo-color": "green",
+                "text-halo-width": 1,
+                "text-halo-blur": 0
+              }
+            });
+
+
+            map.on('click', 'csvData', function (e) {
+              var coordinates = e.features[0].geometry.coordinates.slice();
+              var description = `<h3>` + e.features[0].properties.Naam + `</h3>` + `<h4>` + `<b>` + `Aantal: ` + `</b>` + e.features[0].properties.Value + `</h4>`;
+              while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+              }
+
+              new mapboxgl.Popup()
+                .setLngLat(coordinates)
+                .setHTML(description)
+                .addTo(map);
+            });
+
+            map.on('mouseenter', 'csvData', function () {
+              map.getCanvas().style.cursor = 'pointer';
+            });
+
+            map.on('mouseleave', 'places', function () {
+              map.getCanvas().style.cursor = '';
+            });
+
+            var bbox = turf.bbox(data);
+            // map.fitBounds(bbox, { padding: 50 });
+
+          });
+
+        });
+      };
+    });
+
+
+
+
+  </script>
+
+</body>
+
+</html>
