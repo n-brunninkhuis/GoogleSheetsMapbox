@@ -24,7 +24,9 @@
   <script src='conf.js'></script>
   <script>
 
-
+    const sheets_url = "https://docs.google.com/spreadsheets/d/1JfqgHi7S32rGsdklVN4mJ2YMhN2cyzs1JfKOIQqoAoY";
+    const sheets_sheet = "Votes";
+    if (mapboxgl.accessToken === null) { mapboxgl.accessToken = 'YOUR MAPBOX TOKEN'; }
 
     var transformRequest = (url, resourceType) => {
       var isMapboxRequest =
@@ -60,14 +62,12 @@
           delimiter: ','
         }, function (err, data) {
 
-   console.log(data);
           var values = data.features.map(f => f.properties.Votes);
           var min = Math.min(...values);
           var max = Math.max(...values);
           var max_radius = 25;
           var max_orig_radius = Math.sqrt(max/Math.PI)*2;
           var radius_correction = max_orig_radius / max_radius;
-          console.log(radius_correction);
           var range = max-min;
 
           map.on('load', function () {
